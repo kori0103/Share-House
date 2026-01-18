@@ -319,18 +319,6 @@
       ]);
     }
 
-    // ====== “첫 장면”을 단 한 번만 시작 ======
-    function beginIfNeeded(){
-      // 저장이 없거나, 로그가 비었거나(완전 새 게임) 첫 장면 시작
-      const isBrandNew = state.log.length === 0 && state.day === 1 && state.slot === 0;
-      if(isBrandNew && !state.flags._morningStarted){
-        state.flags._morningStarted = true; // ✅ 여기서 잠금
-        intro();
-        morningChoice();
-        autoSave();
-      }
-    }
-
     // ====== 진행 =====
         if(state.slot === 3){
           if(!state.flags._nightStarted){
