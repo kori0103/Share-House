@@ -331,40 +331,7 @@
       }
     }
 
-    // ====== 진행 ======
-    function advance(){
-      if(state.day === 1){
-        if(state.slot === 0){
-          // 아침 선택 이후 '계속' 누르면 다음으로
-          narr("부엌에서는 밥 짓는 냄새가 난다. 오늘 하루는 어떤 색일까.");
-          state.slot = 1;
-          return;
-        }
-
-        if(state.slot === 1){
-          if(!state.flags._middayStarted){
-            state.flags._middayStarted = true;
-            middayChoice();
-            return;
-          } else {
-            narr("쉐어하우스로 돌아오는 길, 봉지가 사각사각 소리를 낸다.");
-            state.slot = 2;
-            return;
-          }
-        }
-
-        if(state.slot === 2){
-          if(!state.flags._eveningStarted){
-            state.flags._eveningStarted = true;
-            eveningChoice();
-            return;
-          } else {
-            narr("식탁 위의 조용한 온기가, 오늘을 ‘살았던 하루’로 바꾼다.");
-            state.slot = 3;
-            return;
-          }
-        }
-
+    // ====== 진행 =====
         if(state.slot === 3){
           if(!state.flags._nightStarted){
             state.flags._nightStarted = true;
