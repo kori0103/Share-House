@@ -64,19 +64,21 @@
     // ====== 상태 ======
     const STORAGE_KEY = "sharehouse_save_v1";
 
+    const defaultFlags = () => ({
+      met_alpha_deep: false,
+      met_kai_deep: false,
+      met_otori_deep: false,
+      _morningStarted: false,
+      _middayStarted: false,
+      _eveningStarted: false,
+      _nightStarted: false,
+    });
+
     const state = {
       day: 1,
       slot: 0, // 0 아침, 1 낮, 2 저녁, 3 밤
       affinity: { "알파": 0, "카이": 0, "오토리": 0 },
-      flags: {
-        met_alpha_deep: false,
-        met_kai_deep: false,
-        met_otori_deep: false,
-        _morningStarted: false,
-        _middayStarted: false,
-        _eveningStarted: false,
-        _nightStarted: false,
-      },
+      flags: defaultFlags(),
       log: [],
       awaitingChoice: null,
     };
@@ -155,35 +157,26 @@
         state.day = data.day ?? 1;
         state.slot = data.slot ?? 0;
         state.affinity = data.affinity ?? { "알파":0, "카이":0, "오토리":0 };
-        state.flags = { ...state.flags, ...(data.flags ?? {}) };
+        state.flags = { ...defaultFlags(), ...(data.flags ?? {}) };
         state.log = data.log ?? [];
-        state.awaitingChoice = null;
+        state.awaitingChoice = null; // 선택지는 저장하지 않음(자연스럽게 계속으로 이어짐)
         return true;
       }catch{
         return false;
       }
     }
 
-    function restart(){
+    function clearSave(){
+      localStorage.removeItem(STORAGE_KEY);
+    }
+
+    function resetState(){
       state.day = 1;
       state.slot = 0;
       state.affinity = { "알파": 0, "카이": 0, "오토리": 0 };
-      state.flags = {
-        met_alpha_deep: false,
-        met_kai_deep: false,
-        met_otori_deep: false,
-        _morningStarted: false,
-        _middayStarted: false,
-        _eveningStarted: false,
-        _nightStarted: false,
-      };
+      state.flags = defaultFlags();
       state.log = [];
       state.awaitingChoice = null;
-
-      intro();
-      morningChoice();
-      autoSave();
-      render();
     }
 
     // ====== 스토리 ======
@@ -326,20 +319,26 @@
       ]);
     }
 
+    // ====== “첫 장면”을 단 한 번만 시작 ======
+    function beginIfNeeded(){
+      // 저장이 없거나, 로그가 비었거나(완전 새 게임) 첫 장면 시작
+      const isBrandNew = state.log.length === 0 && state.day === 1 && state.slot === 0;
+      if(isBrandNew && !state.flags._morningStarted){
+        state.flags._morningStarted = true; // ✅ 여기서 잠금
+        intro();
+        morningChoice();
+        autoSave();
+      }
+    }
+
     // ====== 진행 ======
     function advance(){
       if(state.day === 1){
         if(state.slot === 0){
-          if(!state.flags._morningStarted){
-            state.flags._morningStarted = true;
-            intro();
-            morningChoice();
-            return;
-          } else {
-            narr("부엌에서는 밥 짓는 냄새가 난다. 오늘 하루는 어떤 색일까.");
-            state.slot = 1;
-            return;
-          }
+          // 아침 선택 이후 '계속' 누르면 다음으로
+          narr("부엌에서는 밥 짓는 냄새가 난다. 오늘 하루는 어떤 색일까.");
+          state.slot = 1;
+          return;
         }
 
         if(state.slot === 1){
@@ -387,6 +386,14 @@
     function startGame(){
       $("title").style.display = "none";
       $("game").style.display = "block";
+
+      // 시작 시: 저장이 있으면 불러오기(없어도 상관 없음)
+      load();
+
+      // 필요하면(새 게임이면) 첫 장면 자동 시작
+      beginIfNeeded();
+
+      // 그리고 화면 표시
       render();
     }
 
@@ -394,23 +401,30 @@
     $("btnStart").onclick = () => startGame();
 
     $("btnSave").onclick = () => { autoSave(); alert("저장했어요!"); };
+
     $("btnLoad").onclick = () => {
       const ok = load();
-      if(ok){ render(); alert("불러왔어요!"); }
-      else alert("저장 데이터가 없어요.");
-    };
-    $("btnRestart").onclick = () => {
-      if(confirm("처음부터 시작할까요?")){
-        $("game").style.display = "none";
-        $("title").style.display = "block";
-        restart();
+      if(ok){
+        // 불러온 뒤에도, 완전 빈 데이터면 첫 장면 시작
+        beginIfNeeded();
+        render();
+        alert("불러왔어요!");
+      } else {
+        alert("저장 데이터가 없어요.");
       }
     };
 
-    // ====== 시작 ======
-    // 타이틀 화면에서는 자동 시작하지 않음.
-    // 시작하기 눌렀을 때 로드/재시작 진행.
-    load(); // 저장 있으면 불러만 둠(시작은 startGame에서)
+    $("btnRestart").onclick = () => {
+      if(confirm("처음부터 시작할까요? (저장도 삭제돼요)")){
+        clearSave();
+        resetState();
+        // 바로 새 게임 시작(자연스럽게 이어지게)
+        beginIfNeeded();
+        render();
+      }
+    };
+
+    // ✅ 페이지 로드 시엔 타이틀만 보여줌(자동 시작 X)
   </script>
 
 </body>
