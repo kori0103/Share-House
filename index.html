@@ -371,10 +371,152 @@
             nightChoice();
             return;
           } else {
-            narr("오늘 하루가 조용히 접힌다.");
-            narr("🌙 1일차 종료. (2일차는 원하시면 바로 이어서 만들어 드릴게요!)");
-            state.slot = 4;
-            return;
+            narr("🌙 1일차 종료...");
+            // ====== 2일차 플래그 기본값 추가 ======
+    if (!state.flags._day2_started) state.flags._day2_started = false;
+    if (!state.flags._day2_dawn_started) state.flags._day2_dawn_started = false;
+
+    // ====== 2일차 새벽 시작 ======
+    function startDay2Dawn(){
+      state.day = 2;
+      state.slot = 3; // 연출상 새벽(밤 슬롯 사용)
+      state.flags._day2_started = true;
+
+      narr("…고요한 새벽.");
+      narr("집 안이 지나치게 조용해서, 작은 소리도 또렷하게 들린다.");
+      narr("그때— 어딘가에서 낮은 한숨과, 알아듣기 힘든 중얼거림이 들려온다.");
+
+      day2DawnChoice();
+    }
+
+    function day2DawnChoice(){
+      setChoice("소리가 들린 방 앞에 섰다. 문을 열까…?", [
+        {
+          text: "알파의 방으로 간다",
+          run(){
+            day2AlphaDawn();
+          }
+        },
+        {
+          text: "카이의 방으로 간다",
+          run(){
+            day2KaiDawn();
+          }
+        },
+        {
+          text: "오토리의 방으로 간다",
+          run(){
+            day2OtoriDawn();
+          }
+        },
+        {
+          text: "지금은 돌아간다",
+          run(){
+            narr("유이는 문고리에 얹었던 손을 조용히 떼어낸다.");
+            narr("하지만 그 한숨 소리는, 오래 귀에 남는다.");
+          }
+        }
+      ]);
+    }
+
+    // ====== 알파 새벽 ======
+    function day2AlphaDawn(){
+      narr("알파의 방에서는 희미한 화면 빛이 새어 나오고 있었다.");
+      say("알파", "…이 경우, 인간은 왜 마음이 무거워지는 겁니까?");
+      narr("유이는 노크 대신, 조심스럽게 말을 건다.");
+
+      say("유이", "알파… 괜찮아?");
+      narr("잠시 침묵. 그리고 문이 정확한 각도로 열린다.");
+
+      say("알파", "감정을 이해하려 해도, 계산식이 나오지 않습니다.");
+      say("알파", "그래서… 인간과 가까워질수록, 저는 더 고립됩니다.");
+
+      setChoice("유이는 어떻게 답할까?", [
+        {
+          text: "“공감은 연습이야. 같이 해보자.”",
+          run(){
+            say("유이", "틀려도 괜찮아. 같이 해보면 돼.");
+            narr("알파는 잠시 멈춘 뒤, 고개를 끄덕인다.");
+            addAffinity("알파", 3);
+          }
+        },
+        {
+          text: "“이해 못 해도, 곁에 있으면 돼.”",
+          run(){
+            say("유이", "모두 이해할 필요는 없어.");
+            say("유이", "알파는 이미 충분히 노력하고 있어.");
+            addAffinity("알파", 2);
+          }
+        }
+      ]);
+
+      state.flags._day2_dawn_started = true;
+    }
+
+    // ====== 카이 새벽 ======
+    function day2KaiDawn(){
+      narr("카이의 방 앞에는 아무것도 없는 것처럼 보인다.");
+      narr("하지만, 분명 누군가의 숨소리가 있다.");
+
+      say("카이", "…사람들은, 내가 없는 줄 알더라.");
+      say("카이", "그래서 내 얘길, 바로 앞에서 했어.");
+
+      say("유이", "…그걸, 다 들었구나.");
+
+      setChoice("유이는 어떻게 반응할까?", [
+        {
+          text: "“그건 네가 없는 게 아니라, 사람들이 못 보는 거야.”",
+          run(){
+            say("유이", "보이지 않는다고, 없는 건 아니잖아.");
+            narr("카이의 숨이 아주 조금 흔들린다.");
+            addAffinity("카이", 3);
+          }
+        },
+        {
+          text: "“다음엔 내가 같이 있을게.”",
+          run(){
+            say("유이", "다음엔 혼자 두지 않을게.");
+            say("카이", "…그 말, 고마워.");
+            addAffinity("카이", 4);
+          }
+        }
+      ]);
+
+      state.flags._day2_dawn_started = true;
+    }
+
+    // ====== 오토리 새벽 ======
+    function day2OtoriDawn(){
+      narr("오토리의 방에서는 볏짚 냄새가 난다.");
+      narr("오토리는 창가에 앉아, 달빛을 바라보고 있다.");
+
+      say("오토리", "저는… 어디에도 속하지 못해요.");
+      say("오토리", "허수아비에게도, 인간에게도요.");
+
+      setChoice("유이는 뭐라고 말해줄까?", [
+        {
+          text: "“오토리는 오토리야.”",
+          run(){
+            say("유이", "어디에도 끼지 못한 게 아니라…");
+            say("유이", "새로운 자리에 있는 거야.");
+            narr("오토리의 눈이 크게 떠진다.");
+            addAffinity("오토리", 4);
+          }
+        },
+        {
+          text: "“여긴 네가 있어도 되는 집이야.”",
+          run(){
+            say("유이", "이 집에선, 충분해.");
+            say("오토리", "…정말요?");
+            addAffinity("오토리", 3);
+          }
+        }
+      ]);
+
+      state.flags._day2_dawn_started = true;
+    }
+startDay2Dawn();
+return;
           }
         }
       }
