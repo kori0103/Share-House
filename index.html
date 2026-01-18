@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>시골 쉐어하우스: 인외와 함께</title>
+  <style>
+    :root { font-family: system-ui, -apple-system, "Noto Sans KR", sans-serif; }
+    body { margin: 0; background: #0b0d12; color: #e8e9ef; }
+    .wrap { max-width: 720px; margin: 0 auto; padding: 16px; }
+    .card { background: #141826; border: 1px solid #222842; border-radius: 16px; padding: 14px; box-shadow: 0 8px 24px rgba(0,0,0,.35); }
+    .title { font-size: 18px; font-weight: 700; margin: 0 0 8px; }
+    .meta { display: flex; gap: 10px; flex-wrap: wrap; font-size: 13px; opacity: .9; }
+    .pill { background: #1b2140; border: 1px solid #2a3470; padding: 6px 10px; border-radius: 999px; }
+    .log { margin-top: 12px; line-height: 1.6; white-space: pre-wrap; }
+    .name { font-weight: 700; }
+    .btns { display: grid; gap: 10px; margin-top: 14px; }
+    button {
+      border: 1px solid #2a3470; background: #1b2140; color: #e8e9ef;
+      padding: 12px 12px; border-radius: 14px; font-size: 15px;
+      cursor: pointer; touch-action: manipulation;
+    }
+    button:active { transform: translateY(1px); }
+    .row { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+    .ghost { background: transparent; border: 1px solid #2a3470; }
+    .small { font-size: 12px; opacity: .8; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1 class="title">🌾 〈시골 쉐어하우스: 인외와 함께〉</h1>
+      <div class="meta" id="meta"></div>
+      <div class="log" id="log"></div>
+
+      <div class="btns" id="choices"></div>
+
+      <div class="row">
+        <button class="ghost" id="btnSave">저장</button>
+        <button class="ghost" id="btnLoad">불러오기</button>
+        <button class="ghost" id="btnRestart">처음부터</button>
+      </div>
+
+      <div class="small">저장은 이 기기 브라우저에 저장됩니다(localStorage).</div>
+    </div>
+  </div>
+
+<script>
+  // ====== 상태 ======
+  const STORAGE_KEY = "sharehouse_save_v1";
+
+  const state = {
+    day: 1,
+    slot: 0, // 0 아침, 1 낮, 2 저녁, 3 밤
+    affinity: { "알파": 0, "카이": 0, "오토리": 0 },
+    flags: { met_alpha_deep: false, met_kai_deep: false, met_otori_deep: false },
+    // 화면용
+    log: [],
+    awaitingChoice: null, // { prompt, options:[{text, run()}...] }
+  };
+
+  const TIME = ["아침", "낮", "저녁", "밤"];
+
+  // ====== 유틸 ======
+  const $ = (id) => document.getElementById(id);
+
+  function narr(text){ state.log.push(text); }
+  function say(name, text){ state.log.push(`${name}: ${text}`); }
+  function addAffinity(who, delta){ state.affinity[who] = (state.affinity[who] ?? 0) + delta; }
+
+  function setChoice(prompt, options){
+    state.awaitingChoice = { prompt, options };
+  }
+
+  function clearChoices(){
+    state.awaitingChoice = null;
+  }
+
+  function render(){
+    $("meta").innerHTML = `
+      <div class="pill">📅 ${state.day}일차</div>
+      <div class="pill">⏰ ${TIME[state.slot] ?? "—"}</div>
+      <div class="pill">💬 알파 ${state.affinity["알파"]}</div>
+      <div class="pill">💬 카이 ${state.affinity["카이"]}</div>
+      <div class="pill">💬 오토리 ${state.affinity["오토리"]}</div>
+    `;
+
+    $("log").textContent = state.log.join("\n\n");
+
+    const box = $("choices");
+    box.innerHTML = "";
+
+    if(state.awaitingChoice){
+      const p = document.createElement("div");
+      p.style.opacity = ".95";
+      p.style.marginTop = "8px";
+      p.textContent = state.awaitingChoice.prompt;
+      box.appendChild(p);
+
+      state.awaitingChoice.options.forEach((opt, i) => {
+        const btn = document.createElement("button");
+        btn.textContent = `${i+1}. ${opt.text}`;
+        btn.onclick = () => {
+          // 선택 처리
+          clearChoices();
+          opt.run();
+          autoSave();
+          render();
+        };
+        box.appendChild(btn);
+      });
+    } else {
+      // 선택지가 없으면 "계속" 버튼 제공
+      const btn = document.createElement("button");
+      btn.textContent = "계속";
+      btn.onclick = () => { advance(); autoSave(); render(); };
+      box.appendChild(btn);
+    }
+
+    // 스크롤 하단 유지(모바일에서 읽기 편하게)
+    window.requestAnimationFrame(() => {
+      window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+    });
+  }
+
+  function autoSave(){
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      day: state.day,
+      slot: state.slot,
+      affinity: state.affinity,
+      flags: state.flags,
+      log: state.log,
+    }));
+  }
+
+  function load(){
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return false;
+    try{
+      const data = JSON.parse(raw);
+      state.day = data.day ?? 1;
+      state.slot = data.slot ?? 0;
+      state.affinity = data.affinity ?? { "알파":0, "카이":0, "오토리":0 };
+      state.flags = data.flags ?? {};
+      state.log = data.log ?? [];
+      state.awaitingChoice = null;
+      return true;
+    }catch{
+      return false;
+    }
+  }
+
+  function restart(){
+    state.day = 1;
+    state.slot = 0;
+    state.affinity = { "알파": 0, "카이": 0, "오토리": 0 };
+    state.flags = { met_alpha_deep: false, met_kai_deep: false, met_otori_deep: false };
+    state.log = [];
+    state.awaitingChoice = null;
+    intro();
+    autoSave();
+    render();
+  }
+
+  // ====== 스토리 이벤트 ======
+
+  function intro(){
+    narr("아침 햇살이 창문 틈으로 길게 들어온다.");
+    narr("시골 특유의 느린 공기. 먼 곳에서 닭 우는 소리가 들린다.");
+    say("유이", "오늘부터… 여기서 같이 사는 거지.");
+    narr("거실 쪽에서 조용히 인기척이 난다.");
+    narr("금속 관절 소리, 바닥이 아주 살짝 눌리는 느낌, 그리고… 볏짚 냄새.");
+  }
+
+  function morningChoice(){
+    setChoice("거실로 나가면…", [
+      { text: "알파에게 먼저 인사한다", run(){
+          say("유이", "알파, 좋은 아침.");
+          say("알파", "좋은 아침입니다, 유이. 오늘의 실내 습도는 어제보다 7% 낮습니다.");
+          say("유이", "…그 정보, 고마워.");
+          addAffinity("알파", +1);
+        }
+      },
+      { text: "카이가 있는지 먼저 확인한다", run(){
+          say("유이", "카이? 지금… 여기 있어?");
+          narr("잠깐의 정적. 그리고 아주 작은 웃음소리.");
+          say("카이", "들켰네.");
+          narr("의자가 살짝 삐걱인다. 거기 앉아 있었던 모양이다.");
+          addAffinity("카이", +1);
+        }
+      },
+      { text: "오토리에게 ‘좋은 아침’이라고 말한다", run(){
+          say("유이", "오토리, 좋은 아침.");
+          say("오토리", "좋은 아침이에요! 오늘은 바람이 ‘부드러워요’!");
+          narr("오토리는 기분이 좋으면 단어를 꼭 꾹 눌러 말한다.");
+          addAffinity("오토리", +1);
+        }
+      },
+    ]);
+  }
+
+  function middayChoice(){
+    narr("낮, 마을 버스 시간을 맞춰 장을 보러 가기로 했다.");
+    setChoice("누구와 같이 갈까요?", [
+      { text: "알파", run(){
+          narr("알파는 장바구니를 ‘최적 효율’로 채우려 한다.");
+          say("알파", "유이, 동일 예산으로 단백질 섭취량을 13% 증가시킬 수 있습니다.");
+          say("유이", "오늘은… 그냥 먹고 싶은 걸로 하자.");
+          narr("알파는 잠깐 멈추더니, 아주 작은 고개 끄덕임을 한다.");
+          addAffinity("알파", +2);
+          state.flags.met_alpha_deep = true;
+        }
+      },
+      { text: "카이", run(){
+          narr("카이와 함께 걷는 길은 조금 이상하다.");
+          narr("옆에 분명 누군가 있는데, 시선은 빈 공간을 바라보게 된다.");
+          say("유이", "사람들 시선… 힘들지 않아?");
+          say("카이", "가끔은. 근데 너는… 나를 ‘있는 사람’처럼 봐주잖아.");
+          narr("그 말이 묘하게 따뜻하게 남는다.");
+          addAffinity("카이", +2);
+          state.flags.met_kai_deep = true;
+        }
+      },
+      { text: "오토리", run(){
+          narr("오토리는 시장 구경 자체를 축제처럼 즐긴다.");
+          say("오토리", "이건… ‘사람들이 사는 냄새’예요!");
+          narr("오토리는 당근을 들고 ‘와아’ 하고 감탄한다.");
+          say("유이", "당근이 그렇게 좋아?");
+          say("오토리", "좋아요! 오렌지색은 마음이 배부른 색 같아요.");
+          addAffinity("오토리", +2);
+          state.flags.met_otori_deep = true;
+        }
+      },
+    ]);
+  }
+
+  function eveningChoice(){
+    narr("저녁. 네 사람의 식탁이 처음으로 ‘같은 시간’에 맞춰졌다.");
+    narr("밥, 된장국, 그리고… 누군가가 가져온 조각 케이크 하나.");
+    say("유이", "케이크는… 누가 샀어?");
+
+    setChoice("유이는 어떻게 할까요?", [
+      { text: "“같이 나눠 먹자.” 자연스럽게 접시를 꺼낸다", run(){
+          narr("접시를 꺼내는 소리가 오늘의 ‘우리’를 만든다.");
+          addAffinity("알파", +1);
+          addAffinity("카이", +1);
+          addAffinity("오토리", +1);
+        }
+      },
+      { text: "“이건 기념이다.” 오늘을 기념하며 분위기를 만든다", run(){
+          say("유이", "오늘부터 우리 같이 사는 거잖아. 기념하자.");
+          say("오토리", "기념…! 좋아요!");
+          narr("알파는 촛불의 흔들림을 오래 바라본다.");
+          narr("카이는 아무 말이 없지만, 의자가 아주 조금 가까워진다.");
+          addAffinity("오토리", +2);
+          addAffinity("알파", +1);
+          addAffinity("카이", +1);
+        }
+      },
+      { text: "“솔직히 말해줘.” 누가 산 건지 꼭 알고 싶다", run(){
+          say("유이", "솔직히 말해줘. 누가 산 거야?");
+          narr("잠깐의 정적.");
+          say("알파", "유이의 혈당 변동이 최근 낮았습니다. 보정이 필요하다고 판단했습니다.");
+          say("카이", "…아니, 내가 샀어. 그냥… 네가 웃는 얼굴이 보고 싶었어.");
+          say("오토리", "저도… 기쁨을 주고 싶었어요…");
+          narr("세 사람의 이유가 겹쳐져서, 유이는 더 말이 안 나온다.");
+          addAffinity("알파", +1);
+          addAffinity("카이", +2);
+          addAffinity("오토리", +1);
+        }
+      },
+    ]);
+  }
+
+  function nightChoice(){
+    narr("밤. 시골의 밤하늘은 도시보다 훨씬 깊다.");
+    narr("마당에 나가면, 별이 ‘소리 없이’ 쏟아질 것 같다.");
+
+    setChoice("누구와 마당에 잠깐 나갈까요?", [
+      { text: "혼자", run(){
+          narr("혼자 있는 시간도 필요하다. 유이는 숨을 길게 내쉰다.");
+          narr("…그래도, 창문 너머로 누군가의 기척이 느껴진다.");
+        }
+      },
+      { text: "알파", run(){
+          say("알파", "별빛은 물리적으로 매우 오래된 정보입니다.");
+          say("유이", "오래된 정보라… 멋진 말이네.");
+          addAffinity("알파", +2);
+        }
+      },
+      { text: "카이", run(){
+          say("카이", "별 보는 건… 나도 좋아.");
+          narr("보이지 않는 손이, 난간 위에 ‘있는 것처럼’ 놓인다.");
+          addAffinity("카이", +2);
+        }
+      },
+      { text: "오토리", run(){
+          say("오토리", "별은… 논 위에서 보던 것보다 더 가까워요!");
+          say("유이", "집이 생기면, 하늘도 더 가까워지는 걸까.");
+          addAffinity("오토리", +2);
+        }
+      },
+    ]);
+  }
+
+  // ====== 진행 ======
+  function advance(){
+    // 슬롯별로 단계 진행
+    if(state.day === 1){
+      if(state.slot === 0){
+        // 아침: 인트로 -> 선택
+        if(!state.flags._morningStarted){
+          state.flags._morningStarted = true;
+          intro();
+          morningChoice();
+          return;
+        } else {
+          // 선택 이후 "계속" 누르면 다음 슬롯로
+          narr("부엌에서는 밥 짓는 냄새가 난다. 오늘 하루는 어떤 색일까.");
+          state.slot = 1;
+          state.awaitingChoice = null;
+          return;
+        }
+      }
+
+      if(state.slot === 1){
+        if(!state.flags._middayStarted){
+          state.flags._middayStarted = true;
+          middayChoice();
+          return;
+        } else {
+          narr("쉐어하우스로 돌아오는 길, 봉지가 사각사각 소리를 낸다.");
+          state.slot = 2;
+          state.awaitingChoice = null;
+          return;
+        }
+      }
+
+      if(state.slot === 2){
+        if(!state.flags._eveningStarted){
+          state.flags._eveningStarted = true;
+          eveningChoice();
+          return;
+        } else {
+          narr("식탁 위의 조용한 온기가, 오늘을 ‘살았던 하루’로 바꾼다.");
+          state.slot = 3;
+          state.awaitingChoice = null;
+          return;
+        }
+      }
+
+      if(state.slot === 3){
+        if(!state.flags._nightStarted){
+          state.flags._nightStarted = true;
+          nightChoice();
+          return;
+        } else {
+          narr("오늘 하루가 조용히 접힌다.");
+          narr("🌙 1일차 종료. (2일차는 원하시면 제가 바로 이어서 코딩해 드릴게요!)");
+          // 다음으로 넘기는 대신, 여기서 멈춤
+          state.slot = 4;
+          state.awaitingChoice = null;
+          return;
+        }
+      }
+
+      // 끝
+      narr("타이틀로 돌아가려면 ‘처음부터’를 눌러 주세요.");
+      return;
+    }
+  }
+
+  // ====== 버튼 ======
+  $("btnSave").onclick = () => { autoSave(); alert("저장했어요!"); };
+  $("btnLoad").onclick = () => {
+    const ok = load();
+    if(ok){ render(); alert("불러왔어요!"); }
+    else alert("저장 데이터가 없어요.");
+  };
+  $("btnRestart").onclick = () => {
+    if(confirm("처음부터 시작할까요?")) restart();
+  };
+
+  // ====== 시작 ======
+  if(!load()){
+    restart();
+  } else {
+    // 불러온 상태에서 선택지가 비어있으면 계속 진행 버튼으로 이어짐
+    render();
+  }
+</script>
+</body>
+</html>
