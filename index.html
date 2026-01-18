@@ -52,7 +52,7 @@
 ===================== */
 const state = {
   day: 1,
-  phase: "intro", // intro → morning → midday → evening → night → day2_dawn
+  phase: "intro", 
   affinity: { 알파:0, 카이:0, 오토리:0 },
   log: [],
   choice: null
@@ -122,6 +122,37 @@ function morning(){
   ];
 }
 
+function afternoon(){
+  narr("점심을 지나, 집 안이 잠시 느슨해진다.");
+  narr("각자는 저마다의 방식으로 시간을 보내고 있다.");
+
+  state.choice = [
+    { text:"거실에 남아 조용히 쉰다", run(){
+        narr("집 안의 소리가 겹쳐진다.");
+        narr("이곳은 조금씩 ‘집’이 되어 가고 있다.");
+      }
+    },
+    { text:"알파를 잠깐 본다", run(){
+        narr("알파는 창가에서 빛의 각도를 재고 있다.");
+        say("알파","이 시간대의 햇빛은 안정적입니다.");
+        addAff("알파",1);
+      }
+    },
+    { text:"카이의 기척을 따라간다", run(){
+        narr("아무도 없는 복도, 하지만 분명 누군가 있다.");
+        say("카이","…나 있는 거, 알았구나.");
+        addAff("카이",1);
+      }
+    },
+    { text:"오토리와 마당에 나간다", run(){
+        narr("볏짚이 바람에 흔들린다.");
+        say("오토리","햇빛은 기억에 남아요.");
+        addAff("오토리",1);
+      }
+    }
+  ];
+}
+
 function nightEnd(){
   narr("밤이 깊어간다.");
   narr("…그리고, 새벽.");
@@ -161,7 +192,8 @@ function day2Dawn(){
 function advance(){
   switch(state.phase){
     case "morning": morning(); state.phase="midday"; break;
-    case "midday": narr("하루가 느리게 흘러간다."); state.phase="evening"; break;
+    case "midday": narr("하루가 느리게 흘러간다."); state.phase="afternoon"; break;
+    case "afternoon": afternoon(); state.phase="evening"; break;
     case "evening": narr("식탁에 온기가 남는다."); state.phase="night"; break;
     case "night": nightEnd(); break;
     case "day2_dawn": day2Dawn(); state.phase="done"; break;
